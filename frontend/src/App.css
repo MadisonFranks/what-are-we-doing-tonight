@@ -82,3 +82,110 @@ footer {
   padding: 25px;
   color: #d2c5e8;
 }
+
+/* Profile system */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 220px), 1fr)
+  );
+  gap: 18px;
+  margin-top: 25px;
+}
+
+.profile-card {
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid transparent;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.profile-card.active {
+  border-color: #e9b8ff;
+  background: rgba(145, 85, 217, 0.2);
+}
+
+.profile-select {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  padding: 12px;
+}
+
+.profile-select:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.profile-avatar {
+  font-size: 2.5rem;
+}
+
+.profile-interests {
+  font-size: 0.85rem;
+  color: #d2c5e8;
+  line-height: 1.5;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.profile-actions button {
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
+.add-profile-button {
+  margin-top: 25px;
+  background: #9155d9;
+}
+
+.profile-form {
+  max-width: 600px;
+  margin: 30px auto 0;
+  padding: 25px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.profile-form label {
+  display: block;
+  text-align: left;
+  margin: 18px 0 8px;
+  font-weight: bold;
+}
+
+.profile-form input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #9d87ca;
+  border-radius: 10px;
+  background: #211b3d;
+  color: white;
+  font-size: 1rem;
+}
+
+.profile-form input:focus {
+  outline: 2px solid #e9b8ff;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.group-summary {
+  margin-top: 25px;
+  color: #e9b8ff;
+  font-weight: bold;
+}
