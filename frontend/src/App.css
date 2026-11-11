@@ -1,0 +1,84 @@
+
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #15162e, #30215c);
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+.header {
+  padding: 50px 20px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.header h1 {
+  font-size: 3rem;
+  color: #e9b8ff;
+}
+
+.header p {
+  font-size: 1.3rem;
+  color: #d2c5e8;
+}
+
+.main {
+  max-width: 1000px;
+  margin: auto;
+  padding: 30px 20px;
+}
+
+.welcome {
+  margin-bottom: 40px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 25px;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+button {
+  background: #40336e;
+  color: white;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 15px 22px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #7054ad;
+}
+
+button.selected {
+  background: #9155d9;
+  border-color: #e9b8ff;
+}
+
+.results {
+  padding: 40px 20px;
+}
+
+.recommend-button {
+  background: #9155d9;
+  font-size: 1.2rem;
+  padding: 18px 35px;
+  margin-top: 20px;
+}
+
+footer {
+  padding: 25px;
+  color: #d2c5e8;
+}
