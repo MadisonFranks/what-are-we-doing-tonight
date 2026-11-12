@@ -1,20 +1,6 @@
 
-import { useState, useEffect } from "react";
+import { useState, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
-
-type Category =
-  | "Movies"
-  | "TV Series"
-  | "Board Games"
-  | "Video Games"
-  | "Surprise Us";
-
-type Profile = {
-  id: string;
-  name: string;
-  age: number;
-  interests: string[];
-};
 
 type Recommendation = {
   title: string;
@@ -24,365 +10,191 @@ type Recommendation = {
   ageRating: string;
 };
 
-const categories: Category[] = [
-  "Movies",
-  "TV Series",
-  "Board Games",
-  "Video Games",
-  "Surprise Us"
-];
+type RecommendationResponse = { recommendations: Recommendation[] };
 
-const moods = [
-  "Anything",
-  "Funny",
-  "Relaxing",
-  "Adventurous",
-  "Exciting",
-  "Family Friendly"
-];
+type Category =
+  | "Movies"
+  | "TV Series"
+  | "Board Games"
+  | "Video Games"
+  | "Surprise Us";
 
-const times = [
-  "30 minutes",
-  "1 hour",
-  "2 hours",
-  "3+ hours"
-];
 
-const interests = [
-  "Comedy",
-  "Action",
-  "Adventure",
-  "Mystery",
-  "Animation",
-  "Horror",
-  "Romance",
-  "Fantasy",
-  "Strategy",
-  "Family"
-];
+function handleTilt(event: MouseEvent<HTMLButtonElement>) {
+  const button = event.currentTarget;
+  const rect = button.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width - 0.5;
+  const y = (event.clientY - rect.top) / rect.height - 0.5;
+  button.style.setProperty("--rotate-x", `${-y * 13}deg`);
+  button.style.setProperty("--rotate-y", `${x * 13}deg`);
+  button.style.setProperty("--glow-x", `${(x + 0.5) * 100}%`);
+  button.style.setProperty("--glow-y", `${(y + 0.5) * 100}%`);
+}
+
+function resetTilt(event: MouseEvent<HTMLButtonElement>) {
+  const button = event.currentTarget;
+  button.style.setProperty("--rotate-x", "0deg");
+  button.style.setProperty("--rotate-y", "0deg");
+  button.style.setProperty("--glow-x", "50%");
+  button.style.setProperty("--glow-y", "50%");
+}
+
+const tiltStyle = { "--rotate-x": "0deg", "--rotate-y": "0deg" } as CSSProperties;
+
+type Profile = { id: string; name: string; movies: string[]; games: string[]; shows: string[] };
+const STORAGE_KEY = "wawdt-vaporwave-profiles-v1";
+const ACTIVE_KEY = "wawdt-vaporwave-active-profile-v1";
+function loadProfiles(): Profile[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter((p): p is Profile => Boolean(p && typeof p.id === "string" && typeof p.name === "string" && Array.isArray(p.movies) && Array.isArray(p.games) && Array.isArray(p.shows)));
+  } catch { return []; }
+}
+const toLines = (items: string[]) => items.join("\n");
+const fromLines = (value: string) => [...new Set(value.split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
 
 function App() {
-  const [profiles, setProfiles] = useState<Profile[]>(() => {
-    try {
-      const saved = localStorage.getItem("tonight-profiles");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>(loadProfiles);
+  const [activeId, setActiveId] = useState<string>(() => localStorage.getItem(ACTIVE_KEY) || "");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [favoriteMovies, setFavoriteMovies] = useState("");
+  const [favoriteGames, setFavoriteGames] = useState("");
+  const [favoriteShows, setFavoriteShows] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const activeProfile = profiles.find(p => p.id === activeId);
+
+  function startNewProfile() {
+    setEditingId("new"); setProfileName(""); setFavoriteMovies(""); setFavoriteGames(""); setFavoriteShows(""); setSidebarOpen(true);
+  }
+  function editProfile(profile: Profile) {
+    setEditingId(profile.id); setProfileName(profile.name);
+    setFavoriteMovies(toLines(profile.movies)); setFavoriteGames(toLines(profile.games)); setFavoriteShows(toLines(profile.shows)); setSidebarOpen(true);
+  }
+  function saveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = profileName.trim();
+    if (!name) return;
+    const id = editingId === "new" ? (globalThis.crypto?.randomUUID?.() || `${Date.now()}`) : editingId;
+    if (!id) return;
+    const profile: Profile = { id, name, movies: fromLines(favoriteMovies), games: fromLines(favoriteGames), shows: fromLines(favoriteShows) };
+    const updated = editingId === "new" ? [...profiles, profile] : profiles.map(p => p.id === id ? profile : p);
+    setProfiles(updated); localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setActiveId(id); localStorage.setItem(ACTIVE_KEY, id); setEditingId(null);
+  }
+  function selectProfile(id: string) {
+    setActiveId(id); localStorage.setItem(ACTIVE_KEY, id); setEditingId(null);
+  }
+  function deleteProfile(id: string) {
+    if (!window.confirm("Delete this profile and its favorites from this browser?")) return;
+    const updated = profiles.filter(p => p.id !== id);
+    setProfiles(updated); localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (activeId === id) { setActiveId(""); localStorage.removeItem(ACTIVE_KEY); }
+    setEditingId(null);
+  }
 
   const [category, setCategory] = useState<Category>("Movies");
   const [mood, setMood] = useState("Anything");
   const [time, setTime] = useState("2 hours");
-
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem("tonight-profiles", JSON.stringify(profiles));
-  }, [profiles]);
+  const categories: Category[] = [
+    "Movies",
+    "TV Series",
+    "Board Games",
+    "Video Games",
+    "Surprise Us"
+  ];
 
-  function toggleInterest(interest: string) {
-    setSelectedInterests((current) =>
-      current.includes(interest)
-        ? current.filter((item) => item !== interest)
-        : [...current, interest]
-    );
-  }
+  const moods = [
+    "Anything",
+    "Funny",
+    "Relaxing",
+    "Adventurous",
+    "Exciting",
+    "Family Friendly"
+  ];
 
-  function resetForm() {
-    setName("");
-    setAge("");
-    setSelectedInterests([]);
-    setEditingId(null);
-    setShowForm(false);
-  }
-
-  function saveProfile() {
-    const numericAge = Number(age);
-
-    if (
-      !name.trim() ||
-      !Number.isInteger(numericAge) ||
-      numericAge < 1 ||
-      numericAge > 120
-    ) {
-      alert("Please enter a name and a valid age between 1 and 120.");
-      return;
-    }
-
-    if (selectedInterests.length === 0) {
-      alert("Please select at least one interest.");
-      return;
-    }
-
-    if (editingId) {
-      setProfiles((current) =>
-        current.map((profile) =>
-          profile.id === editingId
-            ? {
-                ...profile,
-                name: name.trim(),
-                age: numericAge,
-                interests: selectedInterests
-              }
-            : profile
-        )
-      );
-    } else {
-      const newProfile: Profile = {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        age: numericAge,
-        interests: selectedInterests
-      };
-
-      setProfiles((current) => [...current, newProfile]);
-      setSelectedIds((current) => [...current, newProfile.id]);
-    }
-
-    resetForm();
-  }
-
-  function editProfile(profile: Profile) {
-    setEditingId(profile.id);
-    setName(profile.name);
-    setAge(String(profile.age));
-    setSelectedInterests([...profile.interests]);
-    setShowForm(true);
-  }
-
-  function deleteProfile(id: string) {
-    if (!window.confirm("Delete this profile?")) return;
-
-    setProfiles((current) =>
-      current.filter((profile) => profile.id !== id)
-    );
-
-    setSelectedIds((current) =>
-      current.filter((selectedId) => selectedId !== id)
-    );
-
-    if (editingId === id) resetForm();
-  }
-
-  function toggleParticipant(id: string) {
-    setSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
+  const times = [
+    "30 minutes",
+    "1 hour",
+    "2 hours",
+    "3+ hours"
+  ];
 
   async function handleRecommend() {
-    const participants = profiles.filter((profile) =>
-      selectedIds.includes(profile.id)
-    );
-
-    if (participants.length === 0) {
-      setError("Select at least one participant first.");
-      return;
-    }
-
     setLoading(true);
     setError("");
-    setRecommendations([]);
     setHasSearched(false);
-
+    setRecommendations([]);
     try {
-      const response = await fetch(
-        "http://localhost:8080/api/recommend",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            category,
-            mood,
-            time,
-            participants
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!Array.isArray(data.recommendations)) {
-        throw new Error("Invalid recommendation response");
-      }
-
+      const response = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, mood, time, profile: activeProfile ? { name: activeProfile.name, favoriteMovies: activeProfile.movies, favoriteVideoGames: activeProfile.games, favoriteTvShows: activeProfile.shows } : null }),
+      });
+      if (!response.ok) throw new Error(`Backend returned ${response.status}`);
+      const data: RecommendationResponse = await response.json();
+      if (!Array.isArray(data.recommendations)) throw new Error("Invalid backend response");
       setRecommendations(data.recommendations);
       setHasSearched(true);
     } catch (err) {
-      console.error(err);
-      setError(
-        "Unable to load recommendations. Check that Java is running on port 8080."
-      );
+      setError(`${err instanceof Error ? err.message : "Request failed"}. Check that the Java backend is running on port 8080.`);
     } finally {
       setLoading(false);
     }
   }
 
-  const selectedProfiles = profiles.filter((profile) =>
-    selectedIds.includes(profile.id)
-  );
-
   return (
     <div className="app">
+      <div className="sky-art" aria-hidden="true" />
+      <div className="horizon-grid" aria-hidden="true" />
+      <button className="sidebar-toggle tilt-button" style={tiltStyle} onMouseMove={handleTilt} onMouseLeave={resetTilt} onClick={() => setSidebarOpen(!sidebarOpen)} aria-expanded={sidebarOpen} aria-controls="profiles-sidebar">☰ Profiles</button>
+      <aside id="profiles-sidebar" className={`profile-sidebar ${sidebarOpen ? "open" : ""}`} aria-label="User profiles">
+        <div className="sidebar-heading"><h2>✦ PLAYER PROFILES</h2><button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close profiles">×</button></div>
+        <p className="sidebar-subtitle">Build your own universe of favorites.</p>
+        <button className="tilt-button add-profile" style={tiltStyle} onMouseMove={handleTilt} onMouseLeave={resetTilt} onClick={startNewProfile}>＋ Create profile</button>
+        <div className="profile-list">
+          {profiles.length === 0 && <p className="sidebar-empty">No profiles yet. Create one to get started!</p>}
+          {profiles.map(profile => <div className={`profile-entry ${activeId === profile.id ? "active" : ""}`} key={profile.id}>
+            <button className="profile-select" onClick={() => selectProfile(profile.id)} aria-pressed={activeId === profile.id}><span className="profile-avatar">{profile.name.slice(0, 1).toUpperCase()}</span><span>{profile.name}{activeId === profile.id && <small>✓ ACTIVE</small>}</span></button>
+            <button className="profile-edit" onClick={() => editProfile(profile)} aria-label={`Edit ${profile.name}`}>✎</button>
+          </div>)}
+        </div>
+        {activeProfile && editingId === null && <div className="favorite-preview"><h3>✦ {activeProfile.name}'s favorites</h3>
+          <p><strong>Movies</strong> {activeProfile.movies.join(", ") || "None yet"}</p>
+          <p><strong>Video games</strong> {activeProfile.games.join(", ") || "None yet"}</p>
+          <p><strong>TV shows</strong> {activeProfile.shows.join(", ") || "None yet"}</p>
+          <button className="profile-secondary" onClick={() => editProfile(activeProfile)}>Edit favorites</button>
+        </div>}
+        {editingId !== null && <form className="profile-form" onSubmit={saveProfile}>
+          <h3>{editingId === "new" ? "Create your profile" : "Edit your profile"}</h3>
+          <label>Profile name<input required maxLength={40} value={profileName} onChange={e => setProfileName(e.target.value)} placeholder="Your name" /></label>
+          <p className="form-tip">Add one favorite per line.</p>
+          <label>🎬 Favorite movies<textarea rows={3} value={favoriteMovies} onChange={e => setFavoriteMovies(e.target.value)} placeholder={"Interstellar\nSpider-Man"}/></label>
+          <label>🎮 Favorite video games<textarea rows={3} value={favoriteGames} onChange={e => setFavoriteGames(e.target.value)} placeholder={"Minecraft\nStardew Valley"}/></label>
+          <label>📺 Favorite TV shows<textarea rows={3} value={favoriteShows} onChange={e => setFavoriteShows(e.target.value)} placeholder={"Stranger Things\nThe Office"}/></label>
+          <div className="form-actions"><button className="tilt-button" style={tiltStyle} onMouseMove={handleTilt} onMouseLeave={resetTilt} type="submit">✦ Save profile</button><button className="profile-secondary" type="button" onClick={() => setEditingId(null)}>Cancel</button></div>
+          {editingId !== "new" && <button type="button" className="delete-profile" onClick={() => deleteProfile(editingId)}>Delete profile</button>}
+        </form>}
+        <p className="privacy-note">Profiles are saved only in this browser on this device.</p>
+      </aside>
+      {sidebarOpen && <button className="sidebar-backdrop" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}/>}
       <header className="header">
-        <h1>🎬 What Are We Doing Tonight?</h1>
+        <div className="eyebrow">✦ THE NIGHT IS YOURS ✦</div>
+        <h1>WHAT ARE WE <span>DOING TONIGHT?</span></h1>
         <p>Less debating. More fun together.</p>
       </header>
 
       <main className="main">
         <section className="welcome">
-          <h2>Let's plan your perfect night!</h2>
+          <h2>YOUR NIGHT. <span>YOUR VIBE.</span></h2>
           <p>Find something everyone in your group will enjoy.</p>
-        </section>
-
-        <section className="card">
-          <h2>👥 Who's joining tonight?</h2>
-          <p>Create profiles and select your group.</p>
-
-          <div className="profile-grid">
-            {profiles.map((profile) => {
-              const selected = selectedIds.includes(profile.id);
-
-              return (
-                <div
-                  className={`profile-card ${selected ? "active" : ""}`}
-                  key={profile.id}
-                >
-                  <button
-                    type="button"
-                    className="profile-select"
-                    onClick={() => toggleParticipant(profile.id)}
-                    aria-pressed={selected}
-                  >
-                    <span className="profile-avatar">
-                      {profile.age < 18 ? "🧒" : "🧑"}
-                    </span>
-
-                    <strong>{profile.name}</strong>
-
-                    <span>
-                      {profile.age < 18 ? "Child" : "Adult"} · Age {profile.age}
-                    </span>
-
-                    <span className="profile-interests">
-                      {profile.interests.join(", ")}
-                    </span>
-
-                    <span>{selected ? "✓ Selected" : "Select"}</span>
-                  </button>
-
-                  <div className="profile-actions">
-                    <button
-                      type="button"
-                      onClick={() => editProfile(profile)}
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => deleteProfile(profile.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {!showForm && (
-            <button
-              type="button"
-              className="add-profile-button"
-              onClick={() => setShowForm(true)}
-            >
-              + Add Profile
-            </button>
-          )}
-
-          {showForm && (
-            <div className="profile-form">
-              <h3>{editingId ? "Edit Profile" : "Create Profile"}</h3>
-
-              <label htmlFor="profile-name">Name</label>
-              <input
-                id="profile-name"
-                type="text"
-                value={name}
-                maxLength={50}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Enter a name"
-              />
-
-              <label htmlFor="profile-age">Age</label>
-              <input
-                id="profile-age"
-                type="number"
-                min="1"
-                max="120"
-                value={age}
-                onChange={(event) => setAge(event.target.value)}
-                placeholder="Enter age"
-              />
-
-              <h4>Favorite interests</h4>
-
-              <div className="categories">
-                {interests.map((interest) => (
-                  <button
-                    key={interest}
-                    type="button"
-                    className={
-                      selectedInterests.includes(interest)
-                        ? "selected"
-                        : ""
-                    }
-                    aria-pressed={selectedInterests.includes(interest)}
-                    onClick={() => toggleInterest(interest)}
-                  >
-                    {interest}
-                  </button>
-                ))}
-              </div>
-
-              <div className="form-actions">
-                <button type="button" onClick={saveProfile}>
-                  Save Profile
-                </button>
-
-                <button type="button" onClick={resetForm}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          <p className="group-summary">
-            {selectedProfiles.length} participant(s) selected
-            {selectedProfiles.length > 0 &&
-              `: ${selectedProfiles.map((p) => p.name).join(", ")}`}
-          </p>
+          {activeProfile && <p className="active-greeting">✦ Playing as <strong>{activeProfile.name}</strong> ✦</p>}
         </section>
 
         <section className="card">
@@ -392,9 +204,10 @@ function App() {
             {categories.map((item) => (
               <button
                 key={item}
-                type="button"
-                className={category === item ? "selected" : ""}
-                aria-pressed={category === item}
+                className={`tilt-button ${category === item ? "selected" : ""}`}
+                style={tiltStyle}
+                onMouseMove={handleTilt}
+                onMouseLeave={resetTilt}
                 onClick={() => setCategory(item)}
               >
                 {item}
@@ -410,9 +223,10 @@ function App() {
             {moods.map((item) => (
               <button
                 key={item}
-                type="button"
-                className={mood === item ? "selected" : ""}
-                aria-pressed={mood === item}
+                className={`tilt-button ${mood === item ? "selected" : ""}`}
+                style={tiltStyle}
+                onMouseMove={handleTilt}
+                onMouseLeave={resetTilt}
                 onClick={() => setMood(item)}
               >
                 {item}
@@ -428,9 +242,10 @@ function App() {
             {times.map((item) => (
               <button
                 key={item}
-                type="button"
-                className={time === item ? "selected" : ""}
-                aria-pressed={time === item}
+                className={`tilt-button ${time === item ? "selected" : ""}`}
+                style={tiltStyle}
+                onMouseMove={handleTilt}
+                onMouseLeave={resetTilt}
                 onClick={() => setTime(item)}
               >
                 {item}
@@ -441,74 +256,36 @@ function App() {
 
         <section className="results">
           <h2>Ready to find something fun?</h2>
+          <p>
+            We'll help your group decide what to do tonight!
+          </p>
 
           <button
-            type="button"
-            className="recommend-button"
+            className="recommend-button tilt-button"
+            style={tiltStyle}
+            onMouseMove={handleTilt}
+            onMouseLeave={resetTilt}
             onClick={handleRecommend}
             disabled={loading}
           >
-            {loading
-              ? "Finding your matches..."
-              : "✨ Find Our Perfect Match"}
+            {loading ? "Finding matches..." : "✨ Find Our Perfect Match"}
           </button>
-
-          {error && (
-            <div className="error-message" role="alert">
-              {error}
-            </div>
-          )}
-
+          {error && <p className="error" role="alert">{error}</p>}
           {hasSearched && (
-            <div className="recommendation-section">
-              <h2>🎉 Your Recommendations!</h2>
-
-              <p>
-                Group: {selectedProfiles.map((p) => p.name).join(", ")}
-              </p>
-
-              <p>
-                {category} | {mood} | {time}
-              </p>
-
-              <div className="recommendation-grid">
-                {recommendations.map((item, index) => (
-                  <article
-                    className="recommendation-card"
-                    key={`${item.title}-${index}`}
-                  >
-                    <h3>{item.title}</h3>
-
-                    <p>
-                      <strong>Category:</strong> {item.category}
-                    </p>
-
-                    <p>
-                      <strong>Age Rating:</strong> {item.ageRating}
-                    </p>
-
-                    <div className="match-score">
-                      <strong>{item.matchScore}% Match</strong>
-
-                      <div className="score-bar">
-                        <div
-                          className="score-fill"
-                          style={{
-                            width: `${Math.max(
-                              0,
-                              Math.min(100, item.matchScore)
-                            )}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <p className="recommendation-reason">
-                      {item.reason}
-                    </p>
-                  </article>
-                ))}
-              </div>
+            <div className="recommendations" aria-live="polite">
+              <h2>Your recommendations</h2>
+              {recommendations.length === 0 ? <p>No recommendations found.</p> : (
+                <div className="recommendation-grid">
+                  {recommendations.map((item, index) => (
+                    <article className="recommendation-card" key={`${item.title}-${index}`}>
+                      <span className="score">{item.matchScore}% match</span>
+                      <h3>{item.title}</h3>
+                      <p className="recommendation-meta">{item.category} · {item.ageRating}</p>
+                      <p>{item.reason}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>
